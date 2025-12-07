@@ -7,8 +7,8 @@ import numpy as np
 import cv2
 import time
 
-
-WEATHER_API_KEY = "ADD YOUR API KEY HERE"
+# Get a key from https://www.weatherapi.com/
+WEATHER_API_KEY = "YOUR API KEY GOES HERE"
 
 BVG_DATA = defaultdict(lambda: defaultdict(list))
 WEATHER_DATA = {}
