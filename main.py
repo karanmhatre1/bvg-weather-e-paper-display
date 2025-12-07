@@ -8,7 +8,7 @@ import cv2
 import time
 
 
-WEATHER_API_KEY = "31c7aa28f05f48c2a3790543250612"
+WEATHER_API_KEY = "ADD YOUR API KEY HERE"
 
 BVG_DATA = defaultdict(lambda: defaultdict(list))
 WEATHER_DATA = {}
