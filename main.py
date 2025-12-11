@@ -9,7 +9,7 @@ import time
 from helper import image_to_bin, shorten_stop_name
 
 # Get a key from https://www.weatherapi.com/
-WEATHER_API_KEY = "b15c41ab0df14d04bc1174027250712"
+WEATHER_API_KEY = "WEATHER API KEY HERE"
 
 BVG_DATA = defaultdict(lambda: defaultdict(list))
 PLATFORM_DESTINATION = defaultdict(lambda: defaultdict(list))
