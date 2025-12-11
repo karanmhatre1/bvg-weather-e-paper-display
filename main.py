@@ -6,63 +6,51 @@ from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 import cv2
 import time
+from helper import image_to_bin, shorten_stop_name
 
 # Get a key from https://www.weatherapi.com/
-WEATHER_API_KEY = "YOUR API KEY GOES HERE"
+WEATHER_API_KEY = "b15c41ab0df14d04bc1174027250712"
 
 BVG_DATA = defaultdict(lambda: defaultdict(list))
+PLATFORM_DESTINATION = defaultdict(lambda: defaultdict(list))
+
 WEATHER_DATA = {}
 
-LINE_OFFSETS = {
-    "M8": 240,
-    "U2": 420,
+stops_and_lines = {
+	"900100016": {
+		"142": "240",
+		"U2": "360"
+	}
 }
-DEFAULT_OFFSET = 420
-
-def image_to_epd_bin(in_path, out_path, width, height, invert=False):
-  img = cv2.imread(in_path, cv2.IMREAD_GRAYSCALE)
-  if img is None:
-      raise RuntimeError(f"Could not read image: {in_path}")
-
-  img = cv2.resize(img, (width, height), interpolation=cv2.INTER_AREA)
-  _, bw = cv2.threshold(img, 128, 255, cv2.THRESH_BINARY)
-
-  if invert:
-      bw = 255 - bw
-  buf = np.full((height * width // 8,), 0xFF, dtype=np.uint8)
-
-  for y in range(height):
-      for x in range(width):
-          pixel = bw[y, x]  # 0 or 255
-          if pixel == 0:    # black pixel
-              index = (x // 8) + y * (width // 8)
-              bit = 0x80 >> (x % 8)
-              buf[index] &= (~bit & 0xFF)
-
-  buf.tofile(out_path)
 
 def set_bvg_data():
 
 	BVG_DATA.clear()
 
-	url = "https://v6.bvg.transport.rest/stops/900100016/departures?duration=60"
+	now_time = datetime.now(timezone.utc)
 
-	now_time = datetime.now(timezone.utc);
-	response = requests.get(url)
-	data = response.json()
+	for stop_id, stop_data in stops_and_lines.items():
+		stops_data_url = "https://v6.bvg.transport.rest/stops/"+ stop_id +"/departures?duration=60"
+		response = requests.get(stops_data_url)
+		data = response.json()
 
-	for x in data['departures']:
-		line_name = x['line']['name']
-		direction = x['direction']
-		
-		v_time = datetime.fromisoformat(x['when'])
-		diff = v_time - now_time
+		# print(data)
 
-		offset = LINE_OFFSETS.get(line_name, DEFAULT_OFFSET)
-		time_diff = round((diff.total_seconds() - offset) / 60)
-		
-		if time_diff > 0:
-			BVG_DATA[line_name][direction].append(time_diff)
+		for x in data['departures']:
+			line_name = x['line']['name']
+			destination = x['direction']
+			platform = x['platform']
+
+			if any(line_name in stop for stop in stops_and_lines.values()) and x['when'] is not None:
+				v_time = datetime.fromisoformat(x['when'])
+				diff = v_time - now_time
+
+				offset = stop_data.get("line_name", 120)
+				time_diff = round((diff.total_seconds() - offset) / 60)
+				
+				if time_diff > 0 and len(BVG_DATA[line_name][platform]) < 2:
+					PLATFORM_DESTINATION[line_name][platform] = destination
+					BVG_DATA[line_name][platform].append(time_diff)
 
 def set_weather_data():
 	weather_url = "https://api.weatherapi.com/v1/current.json?q=Berlin&key="+WEATHER_API_KEY
@@ -71,9 +59,12 @@ def set_weather_data():
 
 	temp = data['current']['feelslike_c']
 	rain = data['current']['precip_mm']
+	cloud = data['current']['cloud']
 
 	WEATHER_DATA['temp'] = round(temp)
 	WEATHER_DATA['rain'] = rain
+	WEATHER_DATA['sun'] = (cloud < 20)
+	
 
 def generate_image():
 
@@ -93,40 +84,34 @@ def generate_image():
 
 	flag = [0,0,0,0]
 
-	for type, directions in BVG_DATA.items():
-		if type == "M8":
-			for direction, timings in directions.items():
-				if "Hauptbahnhof" in direction:
-					if flag[0] == 0:
-						if len(timings) >= 1:
-							draw.text((438, 26), "'" + str(timings[0]), font=font_l, fill=0)
-						if len(timings) >= 2:
-							draw.text((540, 26), "'" + str(timings[1]), font=font_l, fill=0)
-						flag[0] = 1
-				else:
-					if flag[1] == 0:
-						if len(timings) >= 1:
-							draw.text((438, 105), "'"+ str(timings[0]), font=font_l, fill=0)
-						if len(timings) >= 2:
-							draw.text((540, 105), "'" + str(timings[1]), font=font_l, fill=0)
-						flag[1] = 1
+	# print(BVG_DATA)
 
-		if type == "U2":
-			for direction, timings in directions.items():
-				if "Pankow" in direction:
-					if flag[2] == 0:
-						if len(timings) >= 1:
-							draw.text((438, 212), "'" + str(timings[0]), font=font_l, fill=0)
-						if len(timings) >= 2:
-							draw.text((540, 212), "'" + str(timings[1]), font=font_l, fill=0)
-						flag[2] = 1
+	for index1, (line, platform) in enumerate(BVG_DATA.items()):
+
+		if index1 == 0:
+			draw.text((36, 63), line, font=font_l, fill=0)
+		else:
+			draw.text((36, 243), line, font=font_l, fill=0)
+
+		for index, (platform_name, timings) in enumerate(platform.items()):
+			if index1 == 0:
+				if index == 0:
+					draw.text((139, 41), "'" + shorten_stop_name(PLATFORM_DESTINATION[line][platform_name]), font=font, fill=0)
+					draw.text((438, 26), "'" + str(timings[0]), font=font_l, fill=0)
+					draw.text((540, 26), "'" + str(timings[1]), font=font_l, fill=0)
 				else:
-					if flag[3] == 0:
-						if len(timings) >= 1:
-							draw.text((438, 283), "'"+ str(timings[0]), font=font_l, fill=0)
-						if len(timings) >= 2:
-							draw.text((540, 283), "'" + str(timings[1]), font=font_l, fill=0)
-						flag[3] = 1
+					draw.text((139, 116), "'" + shorten_stop_name(PLATFORM_DESTINATION[line][platform_name]), font=font, fill=0)
+					draw.text((438, 105), "'"+ str(timings[0]), font=font_l, fill=0)
+					draw.text((540, 105), "'" + str(timings[1]), font=font_l, fill=0)
+			else:
+				if index == 0:
+					draw.text((139, 220), "'" + shorten_stop_name(PLATFORM_DESTINATION[line][platform_name]), font=font, fill=0)
+					draw.text((438, 212), "'" + str(timings[0]), font=font_l, fill=0)
+					draw.text((540, 212), "'" + str(timings[1]), font=font_l, fill=0)
+				else:
+					draw.text((139, 290), "'" + shorten_stop_name(PLATFORM_DESTINATION[line][platform_name]), font=font, fill=0)
+					draw.text((438, 283), "'"+ str(timings[0]), font=font_l, fill=0)
+					draw.text((540, 283), "'" + str(timings[1]), font=font_l, fill=0)
 	
 	## Weather
 
@@ -166,11 +151,14 @@ def generate_image():
 	EPD_WIDTH  = 648
 	EPD_HEIGHT = 480
 
-	INPUT_IMAGE = "result.png"
+	INPUT_IMAGE = "connect_wifi_2.png"
 	OUTPUT_BIN  = "output.bin"
 
-	image_to_epd_bin(INPUT_IMAGE, OUTPUT_BIN, EPD_WIDTH, EPD_HEIGHT, invert=True)
+	image_to_bin(INPUT_IMAGE, OUTPUT_BIN, EPD_WIDTH, EPD_HEIGHT, invert=True)
 
+# image_to_bin("connect_wifi_1.png", "output.bin", 648, 480, invert=True)
+
+# generate_image()
 while(True):
 	try:
 	  generate_image()
