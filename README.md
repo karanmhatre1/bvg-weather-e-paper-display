@@ -20,9 +20,10 @@ This project generates a 600×448 black-and-white image containing:
 
 ## Configuration
 - Add your API key from [Weather API](https://www.weatherapi.com/) in the ```main.py``` file ```WEATHER_API_KEY = "ADD YOUR API KEY HERE"```
-- You can make edits to the Figma file and replace the ```ui.png``` file in the main folder. [Figma File](https://www.figma.com/design/cjOshCGQh8pGtSLoRhdFYi/Bvg-Weather-E-paper-Display?node-id=0-1&t=FPMxVGQMMeU3O5G2-1). If you change the position of where the timings and temperature appear, then you may also need to change the coordinates of the text in ```main.py```
+- You can make edits to the Figma file and replace the ```ui.png``` file in the main folder - [Figma File](https://www.figma.com/design/cjOshCGQh8pGtSLoRhdFYi/Bvg-Weather-E-paper-Display?node-id=0-1&t=FPMxVGQMMeU3O5G2-1). If you change the position of where the timings and temperature appear, then you may also need to change the coordinates of the text in ```main.py```
 
 ## Compatible With
 This repo works perfectly with:
-[Pico Epaper Cast](https://github.com/karanmhatre1/PicoEpaperCast)
+[Pico Epaper Cast](https://github.com/karanmhatre1/Pico-Epaper-Cast)
+
 
